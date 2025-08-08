@@ -402,7 +402,7 @@ var _ = testutils.E2eDatastoreDescribe("GlobalNetworkSet tests", testutils.Datas
 			outRes3, err := c.GlobalNetworkSets().Update(
 				ctx,
 				&apiv3.GlobalNetworkSet{
-					ObjectMeta: metav1.ObjectMeta{Name: name2},
+					ObjectMeta: outRes2.ObjectMeta,
 					Spec:       spec1,
 				},
 				options.SetOptions{},
