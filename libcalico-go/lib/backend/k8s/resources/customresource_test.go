@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest/fake"
 
+	"github.com/projectcalico/calico/libcalico-go/lib/backend/k8s/conversion"
 	calischeme "github.com/projectcalico/calico/libcalico-go/lib/backend/k8s/scheme"
 	"github.com/projectcalico/calico/libcalico-go/lib/backend/model"
 	"github.com/projectcalico/calico/libcalico-go/lib/net"
@@ -304,5 +305,90 @@ var _ = Describe("Custom resource conversion methods (tested using namespaced Ne
 		logrus.Debug("URL: ", url)
 		Expect(url.Path).To(Equal("/apis/namespaces/mynamespace/networksets"))
 		Expect(url.Query().Get("fieldSelector")).To(Equal("metadata.name=foo"))
+	})
+})
+
+var _ = Describe("Custom resource applyKindLabelToResource method", func() {
+	By("testing with GlobalNetworkSet", func() {
+		// Create an empty client since we are only testing applyKindLabelToResource method
+		client := NewGlobalNetworkSetClient(nil, nil).(*customK8sResourceClient)
+
+		// Test resource without labels
+		res1 := &apiv3.GlobalNetworkSet{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       apiv3.KindGlobalNetworkSet,
+				APIVersion: apiv3.GroupVersionCurrent,
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            "name1",
+				ResourceVersion: "rv",
+				UID:             "uid1",
+			},
+			Spec: apiv3.GlobalNetworkSetSpec{},
+		}
+
+		// Test resource with existing labels
+		res2 := &apiv3.GlobalNetworkSet{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       apiv3.KindGlobalNetworkSet,
+				APIVersion: apiv3.GroupVersionCurrent,
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            "name2",
+				ResourceVersion: "rv",
+				UID:             "uid2",
+				Labels: map[string]string{
+					"foo": "bar",
+				},
+			},
+			Spec: apiv3.GlobalNetworkSetSpec{},
+		}
+
+		It("Should apply kind label to resource without labels", func() {
+			client.applyKindLabelToResource(res1)
+			Expect(res1.GetObjectMeta().GetLabels()).To(Equal(map[string]string{
+				conversion.KindLabel: apiv3.KindGlobalNetworkSet,
+			}))
+		})
+
+		It("Should apply kind label to resource with labels", func() {
+			client.applyKindLabelToResource(res2)
+			Expect(res2.GetObjectMeta().GetLabels()).To(Equal(map[string]string{
+				"foo":                "bar",
+				conversion.KindLabel: apiv3.KindGlobalNetworkSet,
+			}))
+		})
+	})
+
+	By("Testing with BGPPeer", func() {
+		client := NewBGPPeerClient(nil, nil).(*customK8sResourceClient)
+
+		res := &apiv3.BGPPeer{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       apiv3.KindBGPPeer,
+				APIVersion: apiv3.GroupVersionCurrent,
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            "name1",
+				ResourceVersion: "rv",
+				UID:             "uid1",
+				Labels: map[string]string{
+					"foo":                    "bar",
+					"projectcalico.org/foo":  "bar",
+					"operator.tigera.io/foo": "bar",
+				},
+			},
+			Spec: apiv3.BGPPeerSpec{},
+		}
+
+		It("Should not apply kind label to resource", func() {
+			client.applyKindLabelToResource(res)
+			Expect(res.GetObjectMeta().GetLabels()).To(
+				Equal(map[string]string{
+					"foo":                    "bar",
+					"projectcalico.org/foo":  "bar",
+					"operator.tigera.io/foo": "bar",
+				}))
+		})
 	})
 })

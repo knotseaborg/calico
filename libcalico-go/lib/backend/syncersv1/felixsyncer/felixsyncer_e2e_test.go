@@ -501,12 +501,20 @@ var _ = testutils.E2eDatastoreDescribe("Felix syncer tests", testutils.Datastore
 			expectedCacheSize++
 			_, expGNet, err := net.ParseCIDROrIP("11.0.0.0/16")
 			Expect(err).NotTo(HaveOccurred())
+
+			expectedLabels := map[string]string{
+				"a": "b",
+			}
+			// Kind label is applied by calico when GlobalNetworkSet is
+			// read from the k8s datastore.
+			if config.Spec.DatastoreType == apiconfig.Kubernetes {
+				expectedLabels[conversion.KindLabel] = apiv3.KindGlobalNetworkSet
+			}
+
 			syncTester.ExpectData(model.KVPair{
 				Key: model.NetworkSetKey{Name: "anetworkset"},
 				Value: &model.NetworkSet{
-					Labels: uniquelabels.Make(map[string]string{
-						"a": "b",
-					}),
+					Labels: uniquelabels.Make(expectedLabels),
 					Nets: []net.IPNet{
 						*expGNet,
 					},
@@ -534,13 +542,21 @@ var _ = testutils.E2eDatastoreDescribe("Felix syncer tests", testutils.Datastore
 
 			_, expNet, err := net.ParseCIDROrIP("11.0.0.0/16")
 			Expect(err).NotTo(HaveOccurred())
+
+			expectedLabels = map[string]string{
+				"a":                           "b",
+				"projectcalico.org/namespace": "namespace-1",
+			}
+			// Kind label is applied by calico when NetworkSet is
+			// read from the k8s datastore.
+			if config.Spec.DatastoreType == apiconfig.Kubernetes {
+				expectedLabels[conversion.KindLabel] = apiv3.KindNetworkSet
+			}
+
 			syncTester.ExpectData(model.KVPair{
 				Key: model.NetworkSetKey{Name: "namespace-1/anetworkset"},
 				Value: &model.NetworkSet{
-					Labels: uniquelabels.Make(map[string]string{
-						"a":                           "b",
-						"projectcalico.org/namespace": "namespace-1",
-					}),
+					Labels: uniquelabels.Make(expectedLabels),
 					Nets: []net.IPNet{
 						*expNet,
 					},
